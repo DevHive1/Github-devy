@@ -139,7 +139,7 @@ export function FileTree({
           throw new Error(d.error || 'فشل في الحذف');
         }
       } else if (activeModal === 'deleteProject') {
-        const res = await fetch('/api/workspace/delete', {
+        const res = await fetch('/api/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workspaceId })

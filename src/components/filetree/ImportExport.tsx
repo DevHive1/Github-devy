@@ -86,7 +86,7 @@ export function useImportExport(
       for (const file of Array.from(files)) {
         try {
           const base64 = await readFileAsBase64(file);
-          const response = await fetch('/api/workspace/import-folder', {
+          const response = await fetch('/api/import-folder', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -178,7 +178,7 @@ export function useImportExport(
 
         if (batchFiles.length > 0) {
           try {
-            const response = await fetch('/api/workspace/import-folder', {
+            const response = await fetch('/api/import-folder', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -223,7 +223,7 @@ export function useImportExport(
     setIsZipping(true);
     try {
       const link = document.createElement('a');
-      link.href = `/api/workspace/export-zip?workspaceId=${encodeURIComponent(workspaceId)}`;
+      link.href = `/api/export-zip?workspaceId=${encodeURIComponent(workspaceId)}`;
       link.setAttribute('download', `workspace-${workspaceId}.zip`);
       document.body.appendChild(link);
       link.click();
@@ -261,7 +261,7 @@ export function useImportExport(
 
       const zipBase64 = await fileDataPromise;
 
-      const response = await fetch('/api/workspace/import-zip', {
+      const response = await fetch('/api/import-zip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspaceId: newWorkspaceId, zipBase64 }),

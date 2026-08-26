@@ -21,7 +21,10 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "esModuleInterop": true,
+    "strict": false,
+    "types": ["react", "react-dom"]
   },
   "exclude": [
     "node_modules",

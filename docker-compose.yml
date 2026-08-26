@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-devy
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    environment:
+      - NODE_ENV=production
+      - PORT=9876
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+    volumes:
+      # Persist workspaces
+      - .agent_workspace:/app/.agent_workspace
+      # Optional: Persist node_modules for faster restarts
+      # - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9876/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - devy-network
+
+  # Optional: Ollama service (local LLM)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - devy-network
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Optional: Redis for session caching
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - devy-network
+
+  # Optional: PostgreSQL for persistent data
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=devy
+      - POSTGRES_USER=devy
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-devy123}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - devy-network
+
+networks:
+  devy-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+  redis-data:
+  postgres-data:

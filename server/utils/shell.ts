@@ -1,10 +1,43 @@
 import { existsSync } from 'fs';
+import { resolve } from 'path';
 
-export function resolveShell() {
+/**
+ * Resolves the appropriate shell for the current platform
+ * 
+ * Best Practices Applied:
+ * - Cross-platform support (Windows, Linux, Termux)
+ * - Priority-based shell selection
+ * - Fallback to default shells
+ * - Environment variable support
+ */
+export function resolveShell(): string {
   if (process.platform === 'win32') {
+    // Windows: Try Git Bash first, then WSL, then cmd.exe
+    const gitBashPaths = [
+      process.env.GIT_BASH,
+      'C:\\Program Files\\Git\\bin\\bash.exe',
+      'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+      resolve(process.env.PROGRAMFILES || 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+      resolve(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe')
+    ].filter(Boolean);
+
+    for (const gitBash of gitBashPaths) {
+      if (existsSync(gitBash)) {
+        return gitBash;
+      }
+    }
+
+    // Try WSL
+    const wslPath = 'wsl.exe';
+    if (existsSync(wslPath)) {
+      return wslPath;
+    }
+
+    // Fallback to cmd.exe
     return process.env.COMSPEC || 'cmd.exe';
   }
 
+  // Linux/Termux: Try various shell locations
   const candidates = [
     process.env.SHELL || '',
     process.env.PREFIX ? `${process.env.PREFIX}/bin/bash` : '',
@@ -24,7 +57,10 @@ export function resolveShell() {
   return 'sh';
 }
 
-function resolveBash() {
+/**
+ * Resolves the path to bash executable
+ */
+function resolveBash(): string | null {
   if (process.platform === 'win32') return null;
 
   const candidates = [
@@ -41,7 +77,10 @@ function resolveBash() {
   return null;
 }
 
-export function resolveScriptCommand() {
+/**
+ * Resolves the path to script command
+ */
+export function resolveScriptCommand(): string | null {
   if (process.platform === 'win32') return null;
 
   const candidates = [
@@ -58,7 +97,13 @@ export function resolveScriptCommand() {
   return null;
 }
 
-export function resolveInteractiveShellLaunch(rcFile?: string) {
+/**
+ * Resolves the interactive shell launch configuration
+ * 
+ * Returns the command and arguments for launching an interactive shell
+ * with proper RC file support on Unix-like systems
+ */
+export function resolveInteractiveShellLaunch(rcFile?: string): { command: string; args: string[] } {
   if (process.platform === 'win32') {
     const shell = resolveShell();
     return { command: shell, args: [] };
@@ -79,4 +124,14 @@ export function resolveInteractiveShellLaunch(rcFile?: string) {
   }
 
   return { command: shell, args: shellArgs };
+}
+
+/**
+ * Resolves the default shell command for script execution
+ * 
+ * On Windows with cmd.exe, returns the shell path
+ * On Unix-like systems, returns the shell path
+ */
+export function resolveDefaultShell(): string {
+  return resolveShell();
 }

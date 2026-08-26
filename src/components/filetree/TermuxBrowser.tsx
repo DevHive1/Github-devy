@@ -36,7 +36,7 @@ export function TermuxBrowser({
     setIsBrowsingLoading(true);
     setTermuxError('');
     try {
-      const response = await fetch('/api/workspace/list-local-dirs', {
+      const response = await fetch('/api/list-local-dirs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ localPath: path }),
@@ -60,7 +60,7 @@ export function TermuxBrowser({
     setIsImporting(true);
     setErrorMsg('');
     try {
-      const response = await fetch('/api/workspace/import-local-path', {
+      const response = await fetch('/api/import-local-path', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import net from 'net';
 import { safePath, getWorkspaceDir, BASE_WORKSPACE_DIR } from '../utils/workspace';
+import { notifyWorkspaceChanged } from '../websocket/events';
 
 const router = Router();
 
@@ -56,10 +57,180 @@ function checkPortActive(port: number): Promise<boolean> {
 
 const COMMON_PORTS = [
   3000, 3001, 3002, 3003, 3004, 3005,
-  4200, 5000, 5001, 5173, 5174, 5175, 5176, 5177,
+  4200, 5000, 5173, 5174, 5175, 5176, 5177,
   8000, 8001, 8080, 8081, 8082, 8083, 8084, 8085,
   9000, 9876
 ];
+
+// ============================================
+// Workspace Management Routes
+// ============================================
+
+/**
+ * GET /api/workspaces
+ * List all available workspaces
+ */
+router.get('/', async (req, res) => {
+  try {
+    await fs.mkdir(BASE_WORKSPACE_DIR, { recursive: true });
+    const entries = await fs.readdir(BASE_WORKSPACE_DIR, { withFileTypes: true });
+    const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
+    res.json({ workspaces: dirs });
+  } catch (error: any) {
+    console.error('Error listing workspaces:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/create
+ * Create a new workspace
+ * Body: { name: string }
+ */
+router.post('/create', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Workspace name is required and must be a string' });
+    }
+
+    // Validate workspace name
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      return res.status(400).json({ 
+        error: 'Workspace name can only contain alphanumeric characters, hyphens, and underscores' 
+      });
+    }
+
+    const dir = getWorkspaceDir(name);
+    
+    // Check if workspace already exists
+    try {
+      const stat = await fs.stat(dir);
+      if (stat.isDirectory()) {
+        return res.status(409).json({ error: `Workspace '${name}' already exists` });
+      }
+    } catch (e: any) {
+      if (e.code !== 'ENOENT') {
+        throw e;
+      }
+    }
+
+    await fs.mkdir(dir, { recursive: true });
+    
+    // Create initial files
+    const packageJsonPath = path.join(dir, 'package.json');
+    await fs.writeFile(packageJsonPath, JSON.stringify({
+      name: name,
+      version: '1.0.0',
+      description: `Workspace: ${name}`,
+      private: true,
+      scripts: {},
+      dependencies: {},
+      devDependencies: {}
+    }, null, 2));
+
+    console.log(`✅ Workspace '${name}' created successfully`);
+    notifyWorkspaceChanged();
+    
+    res.json({ 
+      success: true, 
+      workspaceId: name,
+      path: dir,
+      message: `Workspace '${name}' created successfully`
+    });
+  } catch (error: any) {
+    console.error('Error creating workspace:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/switch
+ * Switch to a different workspace
+ * Body: { workspaceId: string }
+ */
+router.post('/switch', async (req, res) => {
+  try {
+    const { workspaceId } = req.body;
+    if (!workspaceId || typeof workspaceId !== 'string') {
+      return res.status(400).json({ error: 'workspaceId is required and must be a string' });
+    }
+
+    const dir = getWorkspaceDir(workspaceId);
+    
+    // Verify workspace exists
+    try {
+      const stat = await fs.stat(dir);
+      if (!stat.isDirectory()) {
+        return res.status(404).json({ error: `Workspace '${workspaceId}' not found` });
+      }
+    } catch (e: any) {
+      if (e.code === 'ENOENT') {
+        return res.status(404).json({ error: `Workspace '${workspaceId}' not found` });
+      }
+      throw e;
+    }
+
+    console.log(`🔄 Switched to workspace '${workspaceId}'`);
+    
+    res.json({ 
+      success: true, 
+      activeWorkspace: workspaceId,
+      path: dir,
+      message: `Switched to workspace '${workspaceId}'`
+    });
+  } catch (error: any) {
+    console.error('Error switching workspace:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/:id
+ * Delete a workspace
+ * Params: id - workspace ID
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const workspaceId = req.params.id;
+    if (!workspaceId || typeof workspaceId !== 'string') {
+      return res.status(400).json({ error: 'workspaceId is required' });
+    }
+
+    const dir = getWorkspaceDir(workspaceId);
+    
+    // Verify workspace exists
+    try {
+      const stat = await fs.stat(dir);
+      if (!stat.isDirectory()) {
+        return res.status(404).json({ error: `Workspace '${workspaceId}' not found` });
+      }
+    } catch (e: any) {
+      if (e.code === 'ENOENT') {
+        return res.status(404).json({ error: `Workspace '${workspaceId}' not found` });
+      }
+      throw e;
+    }
+
+    // Remove workspace directory
+    await fs.rm(dir, { recursive: true, force: true });
+    
+    console.log(`🗑️ Workspace '${workspaceId}' deleted successfully`);
+    notifyWorkspaceChanged();
+    
+    res.json({ 
+      success: true,
+      message: `Workspace '${workspaceId}' deleted successfully`
+    });
+  } catch (error: any) {
+    console.error('Error deleting workspace:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// Workspace Utility Routes
+// ============================================
 
 router.post('/workspace/delete', async (req, res) => {
   try {
@@ -67,6 +238,7 @@ router.post('/workspace/delete', async (req, res) => {
     if (!workspaceId) return res.status(400).json({ error: 'workspaceId required' });
     const dir = getWorkspaceDir(workspaceId);
     await fs.rm(dir, { recursive: true, force: true });
+    notifyWorkspaceChanged();
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -99,6 +271,7 @@ router.get('/workspace/export-zip', async (req, res) => {
           name === '.next' ||
           name === '.nuxt' ||
           name === '.cache' ||
+          name === '.npm' ||
           name.startsWith('.')
         ) {
           continue;
@@ -172,6 +345,7 @@ router.post('/workspace/import-folder', async (req, res) => {
       written++;
     }
 
+    notifyWorkspaceChanged();
     res.json({ success: true, written });
   } catch (error: any) {
     console.error('Error importing folder:', error);
@@ -195,10 +369,10 @@ router.post('/workspace/import-local-path', async (req, res) => {
     try {
       const stat = await fs.stat(resolvedPath);
       if (!stat.isDirectory()) {
-        return res.status(400).json({ error: 'المسار المحدد ليس مجلداً' });
+        return res.status(400).json({ error: 'المسار يجب أن يكون مجلد' });
       }
     } catch {
-      return res.status(400).json({ error: 'المسار المحدد غير موجود أو غير قابل للقراءة' });
+      return res.status(400).json({ error: 'المسار غير موجود أو غير صالح' });
     }
 
     const folderName = path.basename(resolvedPath);
@@ -207,6 +381,7 @@ router.post('/workspace/import-local-path', async (req, res) => {
 
     await copyDirRecursive(resolvedPath, baseDir, ['node_modules']);
 
+    notifyWorkspaceChanged();
     res.json({ success: true, folderName });
   } catch (error: any) {
     console.error('Error importing local path:', error);
@@ -231,7 +406,7 @@ router.post('/workspace/list-local-dirs', async (req, res) => {
 
     const stat = await fs.stat(targetPath);
     if (!stat.isDirectory()) {
-      return res.status(400).json({ error: 'المسار المحدد ليس مجلداً' });
+      return res.status(400).json({ error: 'المسار يجب أن يكون مجلد' });
     }
 
     const entries = await fs.readdir(targetPath, { withFileTypes: true });
@@ -325,6 +500,7 @@ router.post('/workspace/import-zip', async (req, res) => {
       }
     }
 
+    notifyWorkspaceChanged();
     res.json({ success: true, workspaceId, message: 'Project imported successfully' });
   } catch (error: any) {
     console.error('Error importing ZIP:', error);
@@ -351,17 +527,18 @@ router.post('/workspace/active-ports', async (req, res) => {
   }
 });
 
-router.get('/workspaces', async (req, res) => {
-  try {
-    await fs.mkdir(BASE_WORKSPACE_DIR, { recursive: true });
-    const entries = await fs.readdir(BASE_WORKSPACE_DIR, { withFileTypes: true });
-    const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
-    res.json({ workspaces: dirs });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+/**
+ * GET /api/workspaces (Legacy - kept for backward compatibility)
+ * Redirects to /api/
+ */
+router.get('/workspaces', (req, res) => {
+  res.redirect(301, '/api/');
 });
 
+/**
+ * GET /api/environment/detect
+ * Detect server environment
+ */
 router.get('/environment/detect', (req, res) => {
   res.json({
     success: true,

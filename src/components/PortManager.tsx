@@ -14,7 +14,7 @@ export function PortManager({ workspaceId, onOpenPreview }: Props) {
   const fetchActivePorts = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const res = await fetch('/api/workspace/active-ports', {
+      const res = await fetch('/api/active-ports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspaceId })

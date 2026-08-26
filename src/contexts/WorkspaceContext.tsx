@@ -51,7 +51,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const fetchWorkspaces = useCallback(async () => {
     try {
-      const res = await fetch("/api/workspaces");
+      const res = await fetch("/api/");
       if (res.ok) {
         const data = await res.json();
         setAvailableWorkspaces(data.workspaces || []);

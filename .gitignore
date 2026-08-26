@@ -1,9 +1,64 @@
+# Dependencies
 node_modules/
-build/
+
+# Build output
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
+
+# Workspaces
 .agent_workspace/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Temporary files
+tmp/
+temp/
+
+# Editor directories
+.atom/
+.sublime/
+
+# Package manager locks (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+
+# Server logs
+server.log
+*.pid
+
+# Security
+.secrets
+*.key
+*.pem
+
+# Docker
+.docker/
+
+# Test
+.coverage
+.nyc_output/

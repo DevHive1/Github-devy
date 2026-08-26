@@ -3,7 +3,7 @@ import { useTerminalConnection } from './useTerminalConnection';
 import { useTerminalTabs } from './useTerminalTabs';
 import { ProcessManager } from './ProcessManager';
 import { TerminalToolbar, TerminalFooter } from './TerminalToolbar';
-import 'xterm/css/xterm.css';
+import '@xterm/xterm/css/xterm.css';
 
 interface Props {
   workspaceId: string;

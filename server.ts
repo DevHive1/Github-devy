@@ -45,7 +45,7 @@ app.use('/api/gemini', aiRouter);
 app.use('/api/browser', browserRouter);
 app.use('/api/fs', fsRouter);
 app.use('/api/git', gitRouter);
-app.use('/api', workspaceRouter); // Workspace endpoints and list workspaces (/api/workspaces)
+app.use('/api', workspaceRouter); // Workspace endpoints: GET /api/, POST /api/create, POST /api/switch, DELETE /api/:id
 app.use('/api/cmd', cmdRouter);
 app.use('/api/web', webRouter);
 app.use('/api/db', dbRouter);
@@ -54,6 +54,7 @@ app.use('/api/package', packageRouter);
 app.use('/api/rag', ragRouter);
 app.use('/api/ast', astRouter);
 app.use('/api/sandbox', sandboxRouter);
+
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
