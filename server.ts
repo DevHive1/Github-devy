@@ -18,10 +18,16 @@ import packageRouter from './server/routes/package';
 import ragRouter from './server/routes/rag';
 import astRouter from './server/routes/ast';
 import sandboxRouter from './server/routes/sandbox';
+import postgresRouter from './server/routes/postgres';
+import redisRouter from './server/routes/redis';
 
 
 // Import Websocket handlers
 import { setupWebSocketTerminal, cleanAllTerminalSessions } from './server/websocket/terminal';
+
+// Import database connections
+import { connect as connectPostgres, closePool as closePostgresPool } from './server/database/postgres';
+import { connect as connectRedis, close as closeRedis } from './server/database/redis';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '9876');
@@ -30,6 +36,23 @@ const isProductionServer = process.env.NODE_ENV === 'production' || process.argv
 
 // Prevent Git commands inside workspaces from traversing up to the IDE's own Git repo
 process.env.GIT_CEILING_DIRECTORIES = path.resolve(process.cwd());
+
+// Connect to databases on startup
+connectPostgres().then((result) => {
+  if (result.success) {
+    console.log('✅ PostgreSQL connected successfully');
+  } else {
+    console.warn('⚠️ PostgreSQL connection failed:', result.error);
+  }
+});
+
+connectRedis().then((result) => {
+  if (result.success) {
+    console.log('✅ Redis connected successfully');
+  } else {
+    console.warn('⚠️ Redis connection failed:', result.error);
+  }
+});
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -54,6 +77,8 @@ app.use('/api/package', packageRouter);
 app.use('/api/rag', ragRouter);
 app.use('/api/ast', astRouter);
 app.use('/api/sandbox', sandboxRouter);
+app.use('/api/postgres', postgresRouter);
+app.use('/api/redis', redisRouter);
 
 
 app.use('/api', (req, res) => {
@@ -116,23 +141,27 @@ async function startServer() {
 function handleShutdown(signal: string) {
   console.log(`\nReceived ${signal}. Starting clean shutdown...`);
   
+  // Close database connections
+  closePostgresPool().catch(console.error);
+  closeRedis().catch(console.error);
+  
   try {
     cleanAllTerminalSessions();
-    console.log('✓ Cleaned all terminal sessions.');
+    console.log('✅ Cleaned all terminal sessions.');
   } catch (err) {
     console.error('Error cleaning terminal sessions:', err);
   }
 
   try {
     killAllBackgroundProcesses();
-    console.log('✓ Killed all background processes.');
+    console.log('✅ Killed all background processes.');
   } catch (err) {
     console.error('Error killing background processes:', err);
   }
 
   if (serverInstance) {
     serverInstance.close(() => {
-      console.log('✓ HTTP server closed.');
+      console.log('✅ HTTP server closed.');
       process.exit(0);
     });
     // Force exit after 5 seconds if server won't close

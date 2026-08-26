@@ -15,6 +15,11 @@ services:
       - PORT=9876
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - POSTGRES_URL=postgresql://devy:devy123@postgres:5432/devy
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
     volumes:
       # Persist workspaces
       - .agent_workspace:/app/.agent_workspace
@@ -28,6 +33,45 @@ services:
       start_period: 10s
     networks:
       - devy-network
+
+  # PostgreSQL Database (Primary)
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=devy
+      - POSTGRES_USER=devy
+      - POSTGRES_PASSWORD=devy123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - devy-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devy -d devy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Caching and Sessions
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - devy-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Optional: Ollama service (local LLM)
   ollama:
@@ -49,34 +93,26 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-  # Optional: Redis for session caching
-  redis:
-    image: redis:7-alpine
-    container_name: redis
+  # Optional: MongoDB for document storage
+  mongo:
+    image: mongo:7-alpine
+    container_name: mongo
     restart: unless-stopped
     ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - devy-network
-
-  # Optional: PostgreSQL for persistent data
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
+      - "27017:27017"
     environment:
-      - POSTGRES_DB=devy
-      - POSTGRES_USER=devy
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-devy123}
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+      - MONGO_INITDB_DATABASE=github-devy
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mongo-data:/data/db
     networks:
       - devy-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   devy-network:
@@ -86,3 +122,4 @@ volumes:
   ollama-data:
   redis-data:
   postgres-data:
+  mongo-data:
