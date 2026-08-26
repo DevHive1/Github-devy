@@ -1,4 +1,4 @@
-# Github-devy
+# 🚀 Github-devy
 
 **منصة تطوير متكاملة مع دعم AI و Terminal و إدارة الملفات**
 
@@ -21,6 +21,28 @@
 ---
 
 ## 🚀 **البدء السريع**
+
+### **طريقة 1: باستخدام Docker (أفضل للإنتاج)**
+
+```bash
+# استنساخ المشروع
+git clone https://github.com/DevHive1/Github-devy.git
+cd Github-devy
+
+# إنشاء ملف البيئة
+cp .env.example .env
+
+# تشغيل جميع الخدمات (App + PostgreSQL + Redis)
+docker-compose up -d
+
+# عرض حالة الخدمات
+docker-compose ps
+
+# الوصول إلى المنصة
+# ستفتح على: http://localhost:9876
+```
+
+### **طريقة 2: تثبيت محلي**
 
 ```bash
 # استنساخ المشروع
@@ -55,6 +77,7 @@ npm start
 | **Linux** | Node.js 18+ | Ubuntu, Fedora, Arch, etc. |
 | **macOS** | Node.js 18+ | Intel & Apple Silicon |
 | **Termux** | Node.js 18+ | Android via Termux |
+| **Docker** | Docker 20+ | للتشغيل باستخدام حاويات |
 
 ### تثبيت الاعتمادات
 
@@ -67,6 +90,16 @@ npm install --only=production
 
 # تحديث الاعتمادات
 npm update
+```
+
+### تثبيت قواعد البيانات (اختياري)
+
+```bash
+# PostgreSQL + Redis (مستحث)
+docker-compose up -d postgres redis
+
+# MongoDB (اختياري)
+docker-compose up -d mongo
 ```
 
 ---
@@ -106,6 +139,8 @@ pm2 startup
 
 ## 🛠️ **الأوامر المتاحة**
 
+### أوامر المشروع
+
 | الأمر | الوصف |
 |-------|------|
 | `npm start` | تشغيل التطبيق في وضع الإنتاج |
@@ -113,12 +148,10 @@ pm2 startup
 | `npm run build` | بناء المشروع كامل |
 | `npm run build:server` | بناء السيرفر فقط |
 | `npm run build:client` | بناء الفrontend فقط |
-| `npm run lint` | فحص الكود باستخدام ESLint |
+| `npm run lint` | فحص الكود باستخدام TypeScript |
 | `npm run syntax-check` | فحص syntax TypeScript |
 | `npm run ts-check` | فحص Types TypeScript |
 | `npm run check-all` | تشغيل جميع الفحوصات |
-| `npm run server` | تشغيل السيرفر فقط |
-| `npm run client` | تشغيل الفrontend فقط |
 
 ### أوامر Docker
 
@@ -137,6 +170,12 @@ docker-compose down
 
 # عرض logs
 docker-compose logs -f
+
+# دخول إلى PostgreSQL
+psql -h localhost -U devy -d devy
+
+# دخول إلى Redis CLI
+redis-cli
 ```
 
 ---
@@ -159,7 +198,8 @@ PORT=9876
 NODE_ENV=development
 
 # مفاتيح AI (مطلوبة)
-GEMINI_API_KEY=your_gemini_api_key_here
+# احصل على API Key من: https://ai.google.dev/gemini-api/docs/api-key
+GEMINI_API_KEY=
 
 # إعدادات AI المحلية (اختيارية)
 OLLAMA_URL=http://localhost:11434
@@ -168,16 +208,18 @@ LM_STUDIO_URL=http://localhost:1234
 LM_STUDIO_MODEL=local-model
 
 # GitHub Integration
-GITHUB_TOKEN=your_github_personal_access_token
+# توليد token من: https://github.com/settings/tokens
+GITHUB_TOKEN=
 
-# قاعدة البيانات (اختيارية)
+# قواعد البيانات
+POSTGRES_URL=postgresql://devy:devy123@localhost:5432/devy
 DATABASE_URL=mongodb://localhost:27017/github-devy
-POSTGRES_URL=postgresql://user:password@localhost:5432/github-devy
 REDIS_URL=redis://localhost:6379
 
 # الأمن
-SESSION_SECRET=your_session_secret_here
-JWT_SECRET=your_jwt_secret_here
+# توليد باستخدام: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+SESSION_SECRET=
+JWT_SECRET=
 
 # التكوين العام
 MAX_FILE_SIZE=10485760
@@ -211,106 +253,224 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
 http://localhost:9876/api/
 ```
 
-### endpoints الرئيسية
+### **PostgreSQL API Endpoints**
 
 | Method | Endpoint | الوصف |
 |--------|----------|------|
-| GET | `/api/` | قائمة المساحات (Workspaces) |
-| POST | `/api/create` | إنشاء مساحة جديدة |
-| POST | `/api/switch` | التبديل بين المساحات |
-| DELETE | `/api/:id` | حذف مساحة |
-| GET | `/api/health` | فحص صحة النظام |
-| GET | `/api/files` | قائمة الملفات |
-| POST | `/api/files` | رفع ملف |
-| GET | `/api/files/:path` | قراءة ملف |
-| PUT | `/api/files/:path` | تحديث ملف |
-| DELETE | `/api/files/:path` | حذف ملف |
+| GET | `/api/postgres/test` | اختبار اتصال PostgreSQL |
+| GET | `/api/postgres/tables` | قائمة جميع الجداول |
+| GET | `/api/postgres/tables/:name` | معلومات الجدول |
+| POST | `/api/postgres/tables` | إنشاء جدول جديد |
+| GET | `/api/postgres/:table` | الحصول على جميع السجلات |
+| GET | `/api/postgres/:table/:id` | الحصول على سجل واحد |
+| POST | `/api/postgres/:table` | إدراج سجل جديد |
+| PUT | `/api/postgres/:table/:id` | تحديث سجل |
+| DELETE | `/api/postgres/:table/:id` | حذف سجل |
+| POST | `/api/postgres/transaction` | تنفيذ معاملات |
+
+### **Redis API Endpoints**
+
+| Method | Endpoint | الوصف |
+|--------|----------|------|
+| GET | `/api/redis/test` | اختبار اتصال Redis |
+| GET | `/api/redis/status` | حالة الاتصال |
+| POST | `/api/redis/reconnect` | إعادة الاتصال |
+| GET | `/api/redis/keys` | قائمة جميع المفاتيح |
+| POST | `/api/redis/set` | حفظ قيمة |
+| GET | `/api/redis/get/:key` | الحصول على قيمة |
+| DELETE | `/api/redis/del/:key` | حذف مفتاح |
+| POST | `/api/redis/incr/:key` | زيادة قيمة |
+| POST | `/api/redis/decr/:key` | نقص قيمة |
+| POST | `/api/redis/hset/:key` | حفظ حقل في hash |
+| GET | `/api/redis/hget/:key/:field` | الحصول على حقل من hash |
+| GET | `/api/redis/hgetall/:key` | الحصول على جميع حقول hash |
+
+### **SQLite API Endpoints**
+
+| Method | Endpoint | الوصف |
+|--------|----------|------|
+| POST | `/api/db/list` | قائمة ملفات SQLite في workspace |
+| POST | `/api/db/query` | تنفيذ استعلام على قاعدة بيانات |
 
 ### أمثلة استخدام API
 
+#### PostgreSQL Examples:
+
 ```bash
-# الحصول على قائمة المساحات
-curl http://localhost:9876/api/
+# Test connection
+curl http://localhost:9876/api/postgres/test
 
-# إنشاء مساحة جديدة
-curl -X POST http://localhost:9876/api/create \
+# List tables
+curl http://localhost:9876/api/postgres/tables
+
+# Create table
+curl -X POST http://localhost:9876/api/postgres/tables \
   -H "Content-Type: application/json" \
-  -d '{"name": "my-workspace"}'
+  -d '{"tableName": "users", "schema": "username VARCHAR(50) UNIQUE NOT NULL, email VARCHAR(100) UNIQUE NOT NULL"}'
 
-# التبديل إلى مساحة
-curl -X POST http://localhost:9876/api/switch \
+# Insert data
+curl -X POST http://localhost:9876/api/postgres/users \
   -H "Content-Type: application/json" \
-  -d '{"workspaceId": "12345"}'
+  -d '{"data": {"username": "devhive", "email": "dev@devhive.com"}}'
 
-# فحص صحة النظام
-curl http://localhost:9876/api/health
+# Get all users
+curl http://localhost:9876/api/postgres/users
+
+# Get single user
+curl http://localhost:9876/api/postgres/users/1
+```
+
+#### Redis Examples:
+
+```bash
+# Test connection
+curl http://localhost:9876/api/redis/test
+
+# Set key-value with TTL
+curl -X POST http://localhost:9876/api/redis/set \
+  -H "Content-Type: application/json" \
+  -d '{"key": "session:123", "value": "user_data", "ttl": 3600}'
+
+# Get value
+curl http://localhost:9876/api/redis/get/session:123
+
+# Increment counter
+curl -X POST http://localhost:9876/api/redis/incr/counter
 ```
 
 ---
 
 ## 🐳 **Docker**
 
-### بناء وصورة Docker
+### **تشغيل جميع الخدمات**
 
 ```bash
-# بناء الصورة
-docker build -t github-devy:latest .
-
-# تشغيل الحاوية
-docker run -d \
-  --name github-devy \
-  -p 9876:9876 \
-  -v $(pwd)/.agent_workspace:/.agent_workspace \
-  -e GEMINI_API_KEY=your_api_key \
-  -e NODE_ENV=production \
-  github-devy:latest
-```
-
-### docker-compose (مستحث)
-
-```yaml
-version: '3.8'
-services:
-  app:
-    build: .
-    ports:
-      - "9876:9876"
-    environment:
-      - NODE_ENV=production
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    volumes:
-      - ./.agent_workspace:/.agent_workspace
-```
-
-تشغيل:
-```bash
+# بدء جميع الخدمات
 docker-compose up -d
+
+# عرض حالة الخدمات
+docker-compose ps
+
+# عرض logs
+docker-compose logs -f
+
+# إيقاف جميع الخدمات
+docker-compose down
+
+# إزالة جميع البيانات (حذر!)
+docker-compose down -v
+```
+
+### **الاتصال بقواعد البيانات داخل Docker**
+
+| الخدمة | Host | Port | User | Password | Database |
+|---------|------|------|------|----------|----------|
+| PostgreSQL | `postgres` | 5432 | `devy` | `devy123` | `devy` |
+| Redis | `redis` | 6379 | - | - | - |
+| MongoDB | `mongo` | 27017 | `root` | `example` | `github-devy` |
+
+**مثال:**
+```env
+# في .env
+POSTGRES_URL=postgresql://devy:devy123@postgres:5432/devy
+REDIS_URL=redis://redis:6379
+DATABASE_URL=mongodb://root:example@mongo:27017/github-devy
+```
+
+### **أوامر PostgreSQL مفيدة**
+
+```bash
+# الدخول إلى PostgreSQL
+psql -h localhost -U devy -d devy
+
+# إنشاء جدول
+psql -h localhost -U devy -d devy -c "
+  CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+"
+
+# إدراج بيانات
+psql -h localhost -U devy -d devy -c "
+  INSERT INTO users (username, email) VALUES ('devhive', 'dev@devhive.com');
+"
+
+# استعلام
+psql -h localhost -U devy -d devy -c "SELECT * FROM users;"
+```
+
+### **نسخ احتياطي واستعادة**
+
+#### PostgreSQL Backup:
+
+```bash
+# نسخ احتياطي
+pg_dump -U devy -d devy -h localhost -F c -f backup_$(date +%Y%m%d_%H%M%S).dump
+
+# استعادة
+pg_restore -U devy -d devy -h localhost -c backup_20240101.dump
+
+# نسخ احتياطي ك SQL
+pg_dump -U devy -d devy -h localhost > backup_$(date +%Y%m%d).sql
+
+# استعادة من SQL
+psql -U devy -d devy -h localhost < backup_20240101.sql
+```
+
+#### MongoDB Backup:
+
+```bash
+# نسخ احتياطي
+mongodump --uri="mongodb://root:example@localhost:27017/github-devy" --out=backup_$(date +%Y%m%d)
+
+# استعادة
+mongorestore --uri="mongodb://root:example@localhost:27017/github-devy" backup_20240101
 ```
 
 ---
 
 ## 🔒 **الأمن**
 
-### أفضل الممارسات
+### **أفضل الممارسات**
 
-1. **لا تشارك .env** - أضف .env إلى .gitignore
-2. **استخدم HTTPS** - في الإنتاج، استخدم reverse proxy مثل Nginx
-3. **تحديث الاعتمادات** - نفذ `npm audit` بانتظام
-4. **مفاتيح قوية** - استخدم مفاتيح طويلة وعشوائية
-5. **ودائع محدودة** - لا تعط صلاحيات غير ضرورية
+1. **كلمات مرور قوية**
+   ```bash
+   # توليد كلمة مرور عشوائية (32 حرف)
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
 
-### فحص الأمن
+2. **لا تستخدم root user**
+   ```sql
+   -- في PostgreSQL
+   CREATE USER app_user WITH PASSWORD 'strong_password';
+   CREATE DATABASE app_db OWNER app_user;
+   GRANT ALL PRIVILEGES ON DATABASE app_db TO app_user;
+   ```
 
-```bash
-# فحص الاعتمادات
-npm audit
+3. **تقييد الوصول**
+   ```yaml
+   # في docker-compose.yml
+   postgres:
+     environment:
+       - POSTGRES_USER=app_user
+       - POSTGRES_PASSWORD=strong_password
+       - POSTGRES_DB=app_db
+     # لا تعرض البورت خارجيًا في الإنتاج
+     # ports:
+     #   - "5432:5432"
+   ```
 
-# فحص الاعتمادات وإصلاحها
-npm audit fix
+4. **استخدام SSL**
+   ```env
+   POSTGRES_URL=postgresql://user:password@host:5432/db?sslmode=require
+   ```
 
-# فحص الكود بحثاً عن مشاكل
-npm run check-all
-```
+5. **لا تشارك .env**
+   - أضف `.env` إلى `.gitignore`
+   - لا ترفع ملف `.env` إلى Git
 
 ---
 
@@ -379,7 +539,7 @@ cd Github-devy
 npm install
 ```
 
-###Git Hooks
+### Git Hooks
 
 المشروع يستخدم Husky لـ Git Hooks:
 - **pre-commit**: تشغيل `npm run check-all` قبل كل commit
@@ -420,8 +580,19 @@ MIT License - انظر [LICENSE](LICENSE) لمزيد من التفاصيل.
 - [Vite](https://vitejs.dev/)
 - [Express.js](https://expressjs.com/)
 - [Docker](https://www.docker.com/)
+- [PostgreSQL](https://www.postgresql.org/)
+- [Redis](https://redis.io/)
 - [Gemini AI](https://ai.google.dev/)
 
 ---
 
 **نظام مطور بواسطة DevHive1**
+
+---
+
+## 📌 **ملفات README الأخرى**
+
+- [README-ORIGINAL.md](README-ORIGINAL.md) - النسخة الأصلية الكاملة (881 سطر)
+- [README-UPDATED.md](README-UPDATED.md) - النسخة المحدثة سابقاً (427 سطر)
+
+النسخة الحالية هي **نسخة مختصرة** مع التركيز على **البدء السريع** و **الاستخدام العملي**.
